@@ -3,7 +3,7 @@ import { Consumer } from "sqs-consumer";
 import { setTimeout } from "timers/promises";
 
 import type { FastifyInstance } from "fastify";
-import type { Message } from "@aws-sdk/client-sqs";
+import type { Message, QueueAttributeName } from "@aws-sdk/client-sqs";
 import type { SQSClient } from "@aws-sdk/client-sqs";
 
 declare module "fastify" {
@@ -33,7 +33,7 @@ function createConsumer(
 	timeout = 90_000,
 	waitTimeSeconds = 20,
 	batchSize = 1,
-	attributeNames: string[] = [],
+	attributeNames: QueueAttributeName[] = [],
 	messageAttributeNames: string[] = [],
 	events?: eventsHandlers,
 	sqs?: SQSClient
@@ -47,7 +47,7 @@ function createConsumer(
 		sqs,
 		attributeNames,
 		messageAttributeNames,
-		handleMessage: async function handleMessageFunction(message: Message){
+		handleMessage: async function handleMessageFunction(message: Message) {
 			meta.pendingMessages++;
 			try {
 				const result = await Promise.race([
@@ -56,10 +56,10 @@ function createConsumer(
 				]);
 				if (result === "timeout") {
 					const TimeoutError = new Error(`Message ${message.MessageId} Timeout after ${timeout}ms`);
-					if(events?.timeoutError && typeof events.timeoutError === "function") {
+					if (events?.timeoutError && typeof events.timeoutError === "function") {
 						const timeout = events.timeoutError(TimeoutError, message);
 						/* istanbul ignore else */
-						if(timeout === false) {
+						if (timeout === false) {
 							meta.pendingMessages--;
 							return;
 						}
@@ -75,48 +75,48 @@ function createConsumer(
 			return;
 		}
 	})
-	.on("error", (err, message) => {
-		/* istanbul ignore else */
-		if(events?.error) {
-			events.error(err, message);
-		}
-		else {
-			fastify.log.error(`[fastify-sqs-consumer] ${err.message}`);
-		}
-	})
-	.on("processing_error", (err, message) => {
-		/* istanbul ignore else */
-		if(events?.processingError) {
-			events.processingError(err, message);
-		}
-		else {
-			fastify.log.error(`[fastify-sqs-consumer] ${err.message}`);
-		}
-	})
-	.on("message_received", (message) => {
-		if(events?.messageReceived) events.messageReceived(message);
-	})
-	.on("message_processed", (message) => {
-		if(events?.messageProcessed) events.messageProcessed(message);
-	})
-	.on("response_processed", () => {
-		if(events?.responseProcessed) events.responseProcessed();
-	}).on("stopped", () => {
-		if(events?.stopped) events.stopped();
-	})
-	.on("empty", () => {
-		/* istanbul ignore next */
-		if(events?.empty) events.empty();
-	});
+		.on("error", (err, message) => {
+			/* istanbul ignore else */
+			if (events?.error) {
+				events.error(err, message);
+			}
+			else {
+				fastify.log.error(`[fastify-sqs-consumer] ${err.message}`);
+			}
+		})
+		.on("processing_error", (err, message) => {
+			/* istanbul ignore else */
+			if (events?.processingError) {
+				events.processingError(err, message);
+			}
+			else {
+				fastify.log.error(`[fastify-sqs-consumer] ${err.message}`);
+			}
+		})
+		.on("message_received", (message) => {
+			if (events?.messageReceived) events.messageReceived(message);
+		})
+		.on("message_processed", (message) => {
+			if (events?.messageProcessed) events.messageProcessed(message);
+		})
+		.on("response_processed", () => {
+			if (events?.responseProcessed) events.responseProcessed();
+		}).on("stopped", () => {
+			if (events?.stopped) events.stopped();
+		})
+		.on("empty", () => {
+			/* istanbul ignore next */
+			if (events?.empty) events.empty();
+		});
 }
 
-function sqsConsumerPlugin (fastify: FastifyInstance, options: {
+function sqsConsumerPlugin(fastify: FastifyInstance, options: {
 	queueUrl: string;
 	handlerFunction: (message: Message, fastify: FastifyInstance) => Promise<any>;
 	timeout?: number;
 	waitTimeSeconds?: number;
 	batchSize?: number;
-	attributeNames?: string[],
+	attributeNames?: QueueAttributeName[],
 	messageAttributeNames?: string[],
 	events?: eventsHandlers;
 	sqs?: SQSClient
@@ -127,7 +127,7 @@ function sqsConsumerPlugin (fastify: FastifyInstance, options: {
 	const consumers: Consumer[] = [];
 	fastify.decorate("sqsConsumers", consumers);
 
-	for(const handler of options) {
+	for (const handler of options) {
 		const {
 			queueUrl,
 			handlerFunction,
@@ -161,20 +161,20 @@ function sqsConsumerPlugin (fastify: FastifyInstance, options: {
 		}
 		done();
 	});
-    let allStopped = false;
+	let allStopped = false;
 	fastify.addHook("onClose", (fastify, done) => {
 		for (const consumer of consumers) {
 			consumer.stop();
 			consumer.removeAllListeners();
 		}
 		const interval = setInterval(() => {
-			const isRunning = consumers.some((consumer) => consumer.isRunning);
+			const isRunning = consumers.some((consumer) => consumer.status.isRunning);
 			/* istanbul ignore next */
 			if (isRunning) {
 				fastify.log.debug("[fastify-sqs-consumer] Some consumers still running... please wait");
 				return null;
 			}
-			else if(!allStopped) {
+			else if (!allStopped) {
 				allStopped = true;
 				fastify.log.debug("[fastify-sqs-consumer] All consumers are stopped");
 			}
@@ -193,5 +193,5 @@ function sqsConsumerPlugin (fastify: FastifyInstance, options: {
 
 export = fp(sqsConsumerPlugin, {
 	name: "fastify-sqs-consumer",
-	fastify: ">=4.x"
+	fastify: ">=5.x"
 });
