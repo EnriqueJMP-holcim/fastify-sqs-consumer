@@ -3,7 +3,7 @@
 ![CI workflow](https://github.com/fgiova/fastify-sqs-consumer/actions/workflows/node.js.yml/badge.svg)
 [![TypeScript](https://img.shields.io/badge/%3C%2F%3E-TypeScript-%230074c1.svg)](http://www.typescriptlang.org/)
 ## Description
-This plugin for fastify 4.x allows you to consume messages from AWS SQS queues.
+This plugin for fastify 5.x allows you to consume messages from AWS SQS queues.
 On fastify shutdown a simple wait function is called to wait for the end of the processing of the messages in progress.
 
 **Warning**<br>
